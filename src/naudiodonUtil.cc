@@ -20,6 +20,7 @@
 #include <string>
 #include "naudiodonUtil.h"
 #include "node_api.h"
+#include "sconv.h"
 
 napi_status checkStatus(napi_env env, napi_status status,
   const char* file, uint32_t line) {
@@ -53,6 +54,45 @@ napi_status checkStatus(napi_env env, napi_status status,
 long long microTime(std::chrono::high_resolution_clock::time_point start) {
   auto elapsed = std::chrono::high_resolution_clock::now() - start;
   return std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+}
+
+int preNUm(unsigned char byte) {
+    unsigned char mask = 0x80;
+    int num = 0;
+    for (int i = 0; i < 8; i++) {
+        if ((byte & mask) == mask) {
+            mask = mask >> 1;
+            num++;
+        } else {
+            break;
+        }
+    }
+    return num;
+}
+
+bool isUtf8(const char* data, int len) {
+    int num = 0;
+    int i = 0;
+    while (i < len) {
+        if ((data[i] & 0x80) == 0x00) {
+            i++;
+            continue;
+        }
+        else if ((num = preNUm(data[i])) > 2) {
+            i++;
+            for(int j = 0; j < num - 1; j++) {
+                //判断后面num - 1 个字节是不是都是10开
+                if ((data[i] & 0xc0) != 0x80) {
+                    return false;
+                }
+                i++;
+            }
+        } else {
+            //其他情况说明不是utf-8
+            return false;
+        }
+    }
+    return true;
 }
 
 const char* getNapiTypeName(napi_valuetype t) {
@@ -227,7 +267,19 @@ napi_status naud_set_string_utf8(napi_env env, napi_value target, const char* na
     status = napi_get_null(env, &prop);
   }
   else {
-    status = napi_create_string_utf8(env, value, NAPI_AUTO_LENGTH, &prop);
+    if (isUtf8(value, strlen(value))) {
+        status = napi_create_string_utf8(env, value, NAPI_AUTO_LENGTH, &prop);
+    } else {
+        int size = sconv_gbk_to_unicode(value, -1, NULL, 0);
+        wchar *unicode_str = new wchar[size / 2 + 1];
+        size = sconv_gbk_to_unicode(value, -1, unicode_str, size);
+        unicode_str[size / 2] = 0;
+        size = sconv_unicode_to_utf8(unicode_str, -1, NULL, 0);
+        char *utf8_str = new char[size + 1];
+        size = sconv_unicode_to_utf8(unicode_str, -1, utf8_str, size);
+        utf8_str[size] = 0;
+        status = napi_create_string_utf8(env, utf8_str, NAPI_AUTO_LENGTH, &prop);
+    }
   }
   ACCEPT_STATUS(napi_string_expected);
   return napi_set_named_property(env, target, name, prop);
@@ -313,3 +365,4 @@ napi_status naud_delete_named_property(napi_env env, napi_value props, const cha
 
   return napi_ok;
 }
+

@@ -7,8 +7,9 @@
         "src/naudiodon.cc",
         "src/GetDevices.cc",
         "src/GetHostAPIs.cc",
-      	"src/AudioIO.cc",
-      	"src/PaContext.cc"
+        "src/AudioIO.cc",
+        "src/sconv.cc",
+        "src/PaContext.cc"
       ],
       "include_dirs": [
         "portaudio/include"
