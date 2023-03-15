@@ -267,7 +267,7 @@ napi_status naud_set_string_utf8(napi_env env, napi_value target, const char* na
     status = napi_get_null(env, &prop);
   }
   else {
-    if (isUtf8(value, strlen(value))) {
+    if (isUtf8(value, value.length())) {
         status = napi_create_string_utf8(env, value, NAPI_AUTO_LENGTH, &prop);
     } else {
         int size = sconv_gbk_to_unicode(value, -1, NULL, 0);
